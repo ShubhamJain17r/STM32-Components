@@ -1,0 +1,3 @@
+[submodule "lib/STM32-Library"]
+	path = lib/STM32-Library
+	url = https://github.com/ShubhamJain17r/STM32-Library.git
