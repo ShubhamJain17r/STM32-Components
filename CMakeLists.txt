@@ -134,3 +134,4 @@ endfunction()
 # Registered Examples
 # ------------------------------------------------------------------------------
 add_component_example(smoke_test examples/smoke_test/main.cpp)
+add_component_example(tb6612_motors examples/actuators/tb6612_motors/main.cpp)
