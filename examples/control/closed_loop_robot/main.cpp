@@ -90,7 +90,7 @@ int main()
     // 5. Initialize Hardware Timer Quadrature Encoder on TIM3 (0% CPU Load)
     EncoderConfig encCfg;
     encCfg.countsPerRevolution = 1440; // 12 CPR * 30:1 * 4x
-    encCfg.wheelDiameterMeters = 0.032f; // 32 mm wheel
+    encCfg.wheelDiameterMeters = 0.042f; // 42 mm wheel
     QuadratureEncoder<timer::Instance::tim3> leftEncoder{PIN_ENC_A, PIN_ENC_B, encCfg};
     leftEncoder.init();
 

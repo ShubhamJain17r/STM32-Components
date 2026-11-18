@@ -26,7 +26,7 @@ enum class DecodingMode : std::uint8_t
 struct EncoderConfig
 {
     std::uint32_t countsPerRevolution = 1440;       ///< Total decoded ticks per wheel revolution (e.g. 12 CPR * 30:1 * 4x = 1440)
-    float         wheelDiameterMeters = 0.032f;     ///< Physical wheel diameter in meters (default: 32 mm)
+    float         wheelDiameterMeters = 0.042f;     ///< Physical wheel diameter in meters (default: 42 mm)
     bool          inverted            = false;      ///< Invert positive rotation direction
     std::uint8_t  inputFilter         = 0x03;       ///< Digital filter (0x0 = none, 0x3 = 4 cycles, 0x6 = 8 cycles)
     DecodingMode  decodingMode        = DecodingMode::X4_Both; ///< Quad decoding mode
