@@ -2,6 +2,12 @@
  * @file pid_controller.hpp
  * @brief Production-grade C++17 discrete PID controller with anti-windup and derivative filtering.
  *
+ * @deprecated [Tier 3 Migration Notice]
+ * Hardware-independent control algorithms are being migrated to Tier 3 'Embedded-Algorithms'
+ * so they can be unit-tested on host PCs without MCU headers.
+ * This file is retained in STM32-Components purely for backwards compatibility and will be
+ * removed in a future release. Please migrate to Embedded-Algorithms control algorithms.
+ *
  * Designed for embedded real-time robotics:
  * - Line-follower steering error correction
  * - Closed-loop DC motor velocity control
@@ -16,13 +22,24 @@
 #include <cstdint>
 #include "components/common/math_utils.hpp"
 
+#if defined(COMPONENTS_DISABLE_DEPRECATION_WARNINGS)
+#define COMPONENTS_PID_DEPRECATED
+#else
+#define COMPONENTS_PID_DEPRECATED [[deprecated("components::control PID utilities are deprecated; migrate to Tier 3 Embedded-Algorithms")]]
+#endif
+
 namespace components::control
 {
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 /**
  * @brief Configuration parameters for PID controller.
  */
-struct PidConfig
+struct COMPONENTS_PID_DEPRECATED PidConfig
 {
     float kp = 0.0f;            ///< Proportional gain
     float ki = 0.0f;            ///< Integral gain
@@ -41,7 +58,7 @@ struct PidConfig
 /**
  * @brief Discrete-time PID controller.
  */
-class PidController
+class COMPONENTS_PID_DEPRECATED PidController
 {
 public:
     constexpr explicit PidController(const PidConfig& config = {}) noexcept
@@ -180,5 +197,9 @@ private:
         return math::clamp(output, config_.outMin, config_.outMax);
     }
 };
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 } // namespace components::control

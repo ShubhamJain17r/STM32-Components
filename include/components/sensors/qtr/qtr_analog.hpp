@@ -25,7 +25,6 @@
 #include "stm32/common/systick/systick.hpp"
 
 #include "components/common/component_base.hpp"
-#include "components/common/math_utils.hpp"
 #include "components/sensors/qtr/qtr_types.hpp"
 
 namespace components::sensors::qtr

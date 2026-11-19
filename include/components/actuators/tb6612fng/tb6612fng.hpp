@@ -20,11 +20,52 @@
 #include "stm32/timer/timer.hpp"
 
 #include "components/common/component_base.hpp"
-#include "components/common/math_utils.hpp"
 #include "components/actuators/tb6612fng/tb6612fng_types.hpp"
 
 namespace components::actuators::tb6612fng
 {
+
+namespace detail
+{
+
+template<typename T>
+[[nodiscard]] constexpr T clamp(T value, T minVal, T maxVal) noexcept
+{
+    return (value < minVal) ? minVal : ((value > maxVal) ? maxVal : value);
+}
+
+template<typename T>
+[[nodiscard]] constexpr T abs(T value) noexcept
+{
+    return (value < static_cast<T>(0)) ? -value : value;
+}
+
+[[nodiscard]] constexpr float applyDeadband(float value, float deadband) noexcept
+{
+    if (deadband <= 0.0f)
+    {
+        return clamp(value, -1.0f, 1.0f);
+    }
+    if (deadband >= 1.0f)
+    {
+        return 0.0f;
+    }
+
+    if (value > deadband)
+    {
+        return clamp((value - deadband) / (1.0f - deadband), 0.0f, 1.0f);
+    }
+    else if (value < -deadband)
+    {
+        return clamp((value + deadband) / (1.0f - deadband), -1.0f, 0.0f);
+    }
+    else
+    {
+        return 0.0f;
+    }
+}
+
+} // namespace detail
 
 /**
  * @brief Standby pin manager supporting both MCU-driven pins and PCB-hardware-tied VCC.
@@ -158,7 +199,7 @@ public:
      */
     void setSpeed(float speed) noexcept
     {
-        speed = math::clamp(speed, -1.0f, 1.0f);
+        speed = detail::clamp(speed, -1.0f, 1.0f);
         currentSpeed_ = speed;
 
         if (config_.inverted)
@@ -166,7 +207,7 @@ public:
             speed = -speed;
         }
 
-        const float compensated = math::applyDeadband(speed, config_.deadband);
+        const float compensated = detail::applyDeadband(speed, config_.deadband);
 
         gpio::DigitalOutput in1{in1Pin_};
         gpio::DigitalOutput in2{in2Pin_};
@@ -212,7 +253,7 @@ public:
      */
     void forward(float speed = 1.0f) noexcept
     {
-        setSpeed(math::abs(speed));
+        setSpeed(detail::abs(speed));
     }
 
     /**
@@ -220,7 +261,7 @@ public:
      */
     void reverse(float speed = 1.0f) noexcept
     {
-        setSpeed(-math::abs(speed));
+        setSpeed(-detail::abs(speed));
     }
 
     /**
@@ -267,8 +308,8 @@ public:
     }
 
     void setInverted(bool inverted) noexcept { config_.inverted = inverted; }
-    void setDeadband(float deadband) noexcept { config_.deadband = math::clamp(deadband, 0.0f, 1.0f); }
-    void setMinDuty(float minDuty) noexcept { config_.minDuty = math::clamp(minDuty, 0.0f, 1.0f); }
+    void setDeadband(float deadband) noexcept { config_.deadband = detail::clamp(deadband, 0.0f, 1.0f); }
+    void setMinDuty(float minDuty) noexcept { config_.minDuty = detail::clamp(minDuty, 0.0f, 1.0f); }
     void setZeroSpeedMode(ZeroSpeedMode mode) noexcept { config_.zeroSpeedMode = mode; }
 
     [[nodiscard]] float getSpeed() const noexcept { return currentSpeed_; }
@@ -358,8 +399,8 @@ public:
      */
     void drive(float throttle, float steering) noexcept
     {
-        const float speedA = math::clamp(throttle + steering, -1.0f, 1.0f);
-        const float speedB = math::clamp(throttle - steering, -1.0f, 1.0f);
+        const float speedA = detail::clamp(throttle + steering, -1.0f, 1.0f);
+        const float speedB = detail::clamp(throttle - steering, -1.0f, 1.0f);
         setSpeeds(speedA, speedB);
     }
 

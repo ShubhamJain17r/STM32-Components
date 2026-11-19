@@ -1,6 +1,12 @@
 /**
  * @file math_utils.hpp
  * @brief Zero-overhead math utilities for sensor scaling, motor deadband, and calibration.
+ *
+ * @deprecated [Tier 3 Migration Notice]
+ * Hardware-independent mathematical utilities are being migrated to Tier 3 'Embedded-Algorithms'
+ * so they can be unit-tested on host PCs without MCU headers.
+ * This file is retained in STM32-Components purely for backwards compatibility and will be
+ * removed in a future release. Please migrate to Embedded-Algorithms math utilities.
  */
 
 #pragma once
@@ -8,14 +14,25 @@
 #include <cstdint>
 #include <type_traits>
 
+#if defined(COMPONENTS_DISABLE_DEPRECATION_WARNINGS)
+#define COMPONENTS_MATH_DEPRECATED
+#else
+#define COMPONENTS_MATH_DEPRECATED [[deprecated("components::math utilities are deprecated; migrate to Tier 3 Embedded-Algorithms")]]
+#endif
+
 namespace components::math
 {
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 /**
  * @brief Clamps a value between min and max bounds.
  */
 template<typename T>
-[[nodiscard]] constexpr T clamp(T value, T minVal, T maxVal) noexcept
+COMPONENTS_MATH_DEPRECATED [[nodiscard]] constexpr T clamp(T value, T minVal, T maxVal) noexcept
 {
     return (value < minVal) ? minVal : ((value > maxVal) ? maxVal : value);
 }
@@ -24,7 +41,7 @@ template<typename T>
  * @brief Computes absolute value for integral and floating point types.
  */
 template<typename T>
-[[nodiscard]] constexpr T abs(T value) noexcept
+COMPONENTS_MATH_DEPRECATED [[nodiscard]] constexpr T abs(T value) noexcept
 {
     return (value < static_cast<T>(0)) ? -value : value;
 }
@@ -33,7 +50,7 @@ template<typename T>
  * @brief Linearly maps a value from one numerical range to another.
  */
 template<typename T, typename InRange, typename OutRange>
-[[nodiscard]] constexpr OutRange mapRange(T value, InRange inMin, InRange inMax, OutRange outMin, OutRange outMax) noexcept
+COMPONENTS_MATH_DEPRECATED [[nodiscard]] constexpr OutRange mapRange(T value, InRange inMin, InRange inMax, OutRange outMin, OutRange outMax) noexcept
 {
     if (inMax == inMin)
     {
@@ -51,7 +68,7 @@ template<typename T, typename InRange, typename OutRange>
  * @param deadband Positive deadband threshold in [0.0f, 1.0f)
  * @return Normalized, deadband-compensated value in [-1.0f, +1.0f]
  */
-[[nodiscard]] constexpr float applyDeadband(float value, float deadband) noexcept
+COMPONENTS_MATH_DEPRECATED [[nodiscard]] constexpr float applyDeadband(float value, float deadband) noexcept
 {
     if (deadband <= 0.0f)
     {
@@ -80,7 +97,7 @@ template<typename T, typename InRange, typename OutRange>
  * @brief Single-pole infinite impulse response (IIR) exponential moving average filter.
  * y[k] = alpha * x[k] + (1 - alpha) * y[k-1]
  */
-class ExponentialFilter
+class COMPONENTS_MATH_DEPRECATED ExponentialFilter
 {
 public:
     constexpr explicit ExponentialFilter(float alpha = 0.2f, float initialValue = 0.0f) noexcept
@@ -112,5 +129,9 @@ private:
     float current_;
     bool  initialized_;
 };
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 } // namespace components::math
