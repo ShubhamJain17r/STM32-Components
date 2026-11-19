@@ -8,8 +8,17 @@ EXAMPLE ?= examples/smoke_test
 TARGET   = $(notdir $(EXAMPLE))
 BUILD_DIR = build/$(TARGET)
 
-# Submodule directories
-LIB_DIR   = lib/STM32-Library
+# STM32-Library resolution (Tier 1 MCU HAL):
+# If LIB_DIR is not specified, check for sibling directory ../STM32-Library first,
+# then fallback to lib/STM32-Library for standalone/submodule builds.
+ifeq ($(origin LIB_DIR), undefined)
+    ifneq ($(wildcard ../STM32-Library/Inc),)
+        LIB_DIR = ../STM32-Library
+    else
+        LIB_DIR = lib/STM32-Library
+    endif
+endif
+
 CMSIS_DIR = $(LIB_DIR)/Drivers/CMSIS
 
 # Toolchain configuration (override via environment or CLI: make ARM_TOOLCHAIN_DIR=...)

@@ -2,7 +2,11 @@ cmake_minimum_required(VERSION 3.16)
 
 # Set ARM toolchain if not explicitly specified
 if(NOT CMAKE_TOOLCHAIN_FILE)
-    set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/lib/STM32-Library/cmake/arm-none-eabi-gcc.cmake")
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../STM32-Library/cmake/arm-none-eabi-gcc.cmake")
+        set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../STM32-Library/cmake/arm-none-eabi-gcc.cmake")
+    elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/lib/STM32-Library/cmake/arm-none-eabi-gcc.cmake")
+        set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/lib/STM32-Library/cmake/arm-none-eabi-gcc.cmake")
+    endif()
 endif()
 
 project(stm32_components C CXX ASM)
@@ -49,58 +53,91 @@ set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g3 -DDEBUG")
 set(CMAKE_C_FLAGS_RELEASE "-O2 -g0 -DNDEBUG")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -g0 -DNDEBUG")
 
-# Paths
-set(LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib/STM32-Library")
-set(LINKER_SCRIPT "${LIB_DIR}/STM32F446RETX_FLASH.ld")
+# ------------------------------------------------------------------------------
+# Target: stm32::hal (Tier 1 MCU HAL Engine)
+# Supports consumption as an external target if already defined by parent project,
+# or falls back to ../STM32-Library or lib/STM32-Library for standalone builds.
+# ------------------------------------------------------------------------------
+if(TARGET stm32::hal)
+    message(STATUS "[stm32_components] Consuming external CMake target 'stm32::hal'")
+elseif(TARGET stm32_hal)
+    add_library(stm32::hal ALIAS stm32_hal)
+    message(STATUS "[stm32_components] Aliased existing target 'stm32_hal' to 'stm32::hal'")
+else()
+    # Resolve STM32-Library path
+    if(DEFINED STM32_LIBRARY_DIR AND EXISTS "${STM32_LIBRARY_DIR}/Inc")
+        set(LIB_DIR "${STM32_LIBRARY_DIR}")
+    elseif(DEFINED LIB_DIR AND EXISTS "${LIB_DIR}/Inc")
+        # Keep existing LIB_DIR variable if provided
+    elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../STM32-Library/Inc")
+        set(LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../STM32-Library")
+    elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/lib/STM32-Library/Inc")
+        set(LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib/STM32-Library")
+    else()
+        message(FATAL_ERROR "STM32-Library not found. Set STM32_LIBRARY_DIR or clone into ../STM32-Library or lib/STM32-Library.")
+    endif()
+
+    message(STATUS "[stm32_components] Using STM32-Library from: ${LIB_DIR}")
+
+    set(STM32_HAL_SOURCES
+        ${LIB_DIR}/Src/syscalls.c
+        ${LIB_DIR}/Src/sysmem.c
+        ${LIB_DIR}/Drivers/CMSIS/Device/ST/STM32F4xx/Source/Templates/system_stm32f4xx.c
+        ${LIB_DIR}/Startup/startup_stm32f446retx.s
+
+        ${LIB_DIR}/Inc/stm32/common/systick/systick.cpp
+        ${LIB_DIR}/Inc/stm32/gpio/digital_input/digital_input.cpp
+        ${LIB_DIR}/Inc/stm32/gpio/digital_output/digital_output.cpp
+        ${LIB_DIR}/Inc/stm32/gpio/interrupt_input/interrupt_input.cpp
+        ${LIB_DIR}/Inc/stm32/exti/exti_manager.cpp
+        ${LIB_DIR}/Inc/stm32/exti/exti_irq.cpp
+        ${LIB_DIR}/Inc/stm32/timer/interrupt/timer_interrupt.cpp
+        ${LIB_DIR}/Inc/stm32/timer/interrupt/timer_irq.cpp
+        ${LIB_DIR}/Inc/stm32/uart/interrupt/uart_interrupt.cpp
+        ${LIB_DIR}/Inc/stm32/uart/interrupt/uart_irq.cpp
+        ${LIB_DIR}/Inc/stm32/spi/interrupt/spi_interrupt.cpp
+        ${LIB_DIR}/Inc/stm32/spi/interrupt/spi_irq.cpp
+        ${LIB_DIR}/Inc/stm32/i2c/interrupt/i2c_interrupt.cpp
+        ${LIB_DIR}/Inc/stm32/i2c/interrupt/i2c_irq.cpp
+        ${LIB_DIR}/Inc/stm32/adc/interrupt/adc_interrupt.cpp
+        ${LIB_DIR}/Inc/stm32/adc/interrupt/adc_irq.cpp
+        ${LIB_DIR}/Inc/stm32/dma/interrupt/dma_interrupt.cpp
+        ${LIB_DIR}/Inc/stm32/dma/interrupt/dma_irq.cpp
+    )
+
+    add_library(stm32_hal STATIC ${STM32_HAL_SOURCES})
+    add_library(stm32::hal ALIAS stm32_hal)
+
+    target_include_directories(stm32_hal PUBLIC
+        ${LIB_DIR}/Inc
+        ${LIB_DIR}/Drivers/CMSIS/Device/ST/STM32F4xx/Include
+        ${LIB_DIR}/Drivers/CMSIS/Include
+    )
+endif()
+
+# Resolve linker script for example executables
+if(NOT LINKER_SCRIPT)
+    if(DEFINED LIB_DIR AND EXISTS "${LIB_DIR}/STM32F446RETX_FLASH.ld")
+        set(LINKER_SCRIPT "${LIB_DIR}/STM32F446RETX_FLASH.ld")
+    elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../STM32-Library/STM32F446RETX_FLASH.ld")
+        set(LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/../STM32-Library/STM32F446RETX_FLASH.ld")
+    elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/lib/STM32-Library/STM32F446RETX_FLASH.ld")
+        set(LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/lib/STM32-Library/STM32F446RETX_FLASH.ld")
+    endif()
+endif()
 
 # ------------------------------------------------------------------------------
-# Target: stm32_core (Layer 1 Bare-Metal Engine)
-# ------------------------------------------------------------------------------
-set(STM32_CORE_SOURCES
-    ${LIB_DIR}/Src/syscalls.c
-    ${LIB_DIR}/Src/sysmem.c
-    ${LIB_DIR}/Drivers/CMSIS/Device/ST/STM32F4xx/Source/Templates/system_stm32f4xx.c
-    ${LIB_DIR}/Startup/startup_stm32f446retx.s
-
-    ${LIB_DIR}/Inc/stm32/common/systick/systick.cpp
-    ${LIB_DIR}/Inc/stm32/gpio/digital_input/digital_input.cpp
-    ${LIB_DIR}/Inc/stm32/gpio/digital_output/digital_output.cpp
-    ${LIB_DIR}/Inc/stm32/gpio/interrupt_input/interrupt_input.cpp
-    ${LIB_DIR}/Inc/stm32/exti/exti_manager.cpp
-    ${LIB_DIR}/Inc/stm32/exti/exti_irq.cpp
-    ${LIB_DIR}/Inc/stm32/timer/interrupt/timer_interrupt.cpp
-    ${LIB_DIR}/Inc/stm32/timer/interrupt/timer_irq.cpp
-    ${LIB_DIR}/Inc/stm32/uart/interrupt/uart_interrupt.cpp
-    ${LIB_DIR}/Inc/stm32/uart/interrupt/uart_irq.cpp
-    ${LIB_DIR}/Inc/stm32/spi/interrupt/spi_interrupt.cpp
-    ${LIB_DIR}/Inc/stm32/spi/interrupt/spi_irq.cpp
-    ${LIB_DIR}/Inc/stm32/i2c/interrupt/i2c_interrupt.cpp
-    ${LIB_DIR}/Inc/stm32/i2c/interrupt/i2c_irq.cpp
-    ${LIB_DIR}/Inc/stm32/adc/interrupt/adc_interrupt.cpp
-    ${LIB_DIR}/Inc/stm32/adc/interrupt/adc_irq.cpp
-    ${LIB_DIR}/Inc/stm32/dma/interrupt/dma_interrupt.cpp
-    ${LIB_DIR}/Inc/stm32/dma/interrupt/dma_irq.cpp
-)
-
-add_library(stm32_core STATIC ${STM32_CORE_SOURCES})
-
-target_include_directories(stm32_core PUBLIC
-    ${LIB_DIR}/Inc
-    ${LIB_DIR}/Drivers/CMSIS/Device/ST/STM32F4xx/Include
-    ${LIB_DIR}/Drivers/CMSIS/Include
-)
-
-# ------------------------------------------------------------------------------
-# Target: stm32_components (Layer 2 External Device Driver Library)
+# Target: stm32_components (Tier 2 External Device Driver Library)
 # ------------------------------------------------------------------------------
 add_library(stm32_components INTERFACE)
+add_library(stm32::components ALIAS stm32_components)
 
 target_include_directories(stm32_components INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 target_link_libraries(stm32_components INTERFACE
-    stm32_core
+    stm32::hal
 )
 
 # ------------------------------------------------------------------------------
@@ -110,7 +147,7 @@ function(add_component_example TARGET_NAME SOURCE_FILE)
     add_executable(${TARGET_NAME}.elf ${SOURCE_FILE})
 
     target_link_libraries(${TARGET_NAME}.elf PRIVATE
-        stm32_components
+        stm32::components
     )
 
     target_link_options(${TARGET_NAME}.elf PRIVATE
